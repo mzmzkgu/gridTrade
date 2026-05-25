@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ETH GRID · Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080c10;
+    --surface: #0d1218;
+    --surface2: #111820;
+    --border: #1e2a35;
+    --border2: #243040;
+    --accent: #00e5ff;
+    --accent2: #00ff94;
+    --warn: #ff6b35;
+    --red: #ff3b5c;
+    --text: #c8d8e8;
+    --text2: #5a7a92;
+    --text3: #3a5060;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:var(--mono); min-height:100vh; overflow-x:hidden; }
+  body::before {
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+    background-image: linear-gradient(rgba(0,229,255,0.03) 1px,transparent 1px), linear-gradient(90deg,rgba(0,229,255,0.03) 1px,transparent 1px);
+    background-size:40px 40px;
+  }
+  .container { position:relative; z-index:1; max-width:1200px; margin:0 auto; padding:24px 20px; }
+
+  header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:32px; padding-bottom:24px; border-bottom:1px solid var(--border); }
+  .header-left h1 { font-family:var(--sans); font-size:28px; font-weight:800; color:#fff; line-height:1; }
+  .header-left h1 span { color:var(--accent); }
+  .header-left .subtitle { font-size:11px; color:var(--text2); letter-spacing:3px; text-transform:uppercase; margin-top:6px; }
+  .header-right { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
+  .live-badge { display:flex; align-items:center; gap:6px; font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--accent2); }
+  .live-dot { width:6px; height:6px; border-radius:50%; background:var(--accent2); animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.8)} }
+  .last-update { font-size:11px; color:var(--text3); }
+
+  .price-hero {
+    background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    padding:28px 32px; margin-bottom:20px; display:grid; grid-template-columns:1fr auto;
+    align-items:center; gap:24px; position:relative; overflow:hidden;
+  }
+  .price-hero::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; background:linear-gradient(90deg,var(--accent),transparent); }
+  .price-label { font-size:11px; color:var(--text2); letter-spacing:3px; text-transform:uppercase; margin-bottom:8px; }
+  .price-value { font-family:var(--sans); font-size:48px; font-weight:800; color:#fff; letter-spacing:-2px; line-height:1; }
+  .price-value .currency { font-size:20px; font-weight:600; color:var(--text2); margin-right:4px; }
+  .price-sub { font-size:13px; margin-top:8px; color:var(--text2); }
+  .range-indicator { text-align:right; min-width:200px; }
+  .range-labels { display:flex; justify-content:space-between; font-size:10px; color:var(--text3); margin-bottom:6px; }
+  .range-bar { height:4px; background:var(--border2); border-radius:2px; position:relative; overflow:hidden; }
+  .range-bar-fill { position:absolute; top:0;left:0; height:100%; background:linear-gradient(90deg,var(--accent2),var(--accent)); border-radius:2px; transition:width .8s ease; }
+  .range-cursor { position:absolute; top:50%; transform:translate(-50%,-50%); width:10px; height:10px; border-radius:50%; background:#fff; border:2px solid var(--accent); transition:left .8s ease; z-index:2; }
+  .position-pct { font-family:var(--sans); font-size:22px; font-weight:700; color:var(--accent); text-align:right; margin-top:8px; }
+
+  .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+  @media(max-width:768px){ .cards{grid-template-columns:repeat(2,1fr)} .price-value{font-size:32px} .price-hero{grid-template-columns:1fr} .range-indicator{text-align:left;min-width:auto} }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px 20px; position:relative; overflow:hidden; }
+  .card-label { font-size:10px; color:var(--text3); letter-spacing:2.5px; text-transform:uppercase; margin-bottom:10px; }
+  .card-value { font-family:var(--sans); font-size:24px; font-weight:700; color:#fff; line-height:1.1; }
+  .card-value.green { color:var(--accent2); }
+  .card-value.accent { color:var(--accent); }
+  .card-sub { font-size:11px; color:var(--text2); margin-top:4px; }
+  .card-line { position:absolute; bottom:0;left:0;right:0; height:1px; }
+
+  .main-grid { display:grid; grid-template-columns:1fr 360px; gap:20px; margin-bottom:20px; }
+  @media(max-width:900px){ .main-grid{grid-template-columns:1fr} }
+
+  .panel { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+  .panel-header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .panel-title { font-family:var(--sans); font-size:13px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--text2); }
+  .panel-badge { font-size:10px; padding:3px 8px; border-radius:4px; letter-spacing:1px; }
+  .badge-active { background:rgba(0,255,148,.1); color:var(--accent2); border:1px solid rgba(0,255,148,.2); }
+  .badge-paused { background:rgba(255,107,53,.1); color:var(--warn); border:1px solid rgba(255,107,53,.2); }
+  .badge-info { background:rgba(0,229,255,.1); color:var(--accent); border:1px solid rgba(0,229,255,.2); }
+
+  .grid-viz { padding:20px; }
+  .grid-rows { display:flex; flex-direction:column; gap:3px; }
+  .grid-row { display:grid; grid-template-columns:90px 1fr 60px; align-items:center; gap:10px; padding:5px 0; font-size:11px; }
+  .grid-price { color:var(--text2); text-align:right; }
+  .grid-bar-wrap { position:relative; height:8px; background:var(--border); border-radius:2px; overflow:hidden; }
+  .grid-bar { position:absolute; top:0;left:0; height:100%; border-radius:2px; }
+  .grid-bar.buy { background:rgba(0,255,148,.4); }
+  .grid-bar.sell { background:rgba(0,229,255,.4); }
+  .grid-status { font-size:9px; letter-spacing:1px; text-align:center; padding:2px 5px; border-radius:3px; }
+  .status-buy { color:var(--accent2); background:rgba(0,255,148,.08); }
+  .status-sell { color:var(--accent); background:rgba(0,229,255,.08); }
+  .current-price-line { display:flex; align-items:center; gap:10px; margin:8px 0; }
+  .cur-line { flex:1; height:1px; background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent); }
+  .cur-tag { font-size:10px; color:rgba(255,255,255,.6); letter-spacing:1px; white-space:nowrap; }
+
+  .scanner-panel { padding:20px; }
+  .score-display { text-align:center; padding:20px 0; border-bottom:1px solid var(--border); margin-bottom:20px; }
+  .score-num { font-family:var(--sans); font-size:56px; font-weight:800; line-height:1; background:linear-gradient(135deg,var(--accent2),var(--accent)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .score-label { font-size:11px; color:var(--text2); letter-spacing:2px; text-transform:uppercase; margin-top:6px; }
+  .verdict-text { font-size:12px; margin-top:10px; padding:6px 14px; border-radius:20px; display:inline-block; }
+  .verdict-green { background:rgba(0,255,148,.1); color:var(--accent2); border:1px solid rgba(0,255,148,.2); }
+  .verdict-yellow { background:rgba(255,200,0,.1); color:#ffc800; border:1px solid rgba(255,200,0,.2); }
+  .verdict-orange { background:rgba(255,107,53,.1); color:var(--warn); border:1px solid rgba(255,107,53,.2); }
+  .verdict-red { background:rgba(255,59,92,.1); color:var(--red); border:1px solid rgba(255,59,92,.2); }
+  .indicator-rows { display:flex; flex-direction:column; gap:12px; }
+  .indicator-row { display:flex; align-items:center; justify-content:space-between; }
+  .ind-name { font-size:11px; color:var(--text2); letter-spacing:1px; text-transform:uppercase; min-width:60px; }
+  .ind-bar-wrap { flex:1; height:3px; background:var(--border); border-radius:2px; margin:0 12px; position:relative; overflow:hidden; }
+  .ind-bar { position:absolute; top:0;left:0; height:100%; border-radius:2px; transition:width 1s ease; }
+  .ind-val { font-size:12px; font-weight:700; min-width:50px; text-align:right; }
+
+  .chart-panel { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:20px; }
+  .chart-title { font-family:var(--sans); font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--text2); margin-bottom:16px; }
+  .mini-chart { height:80px; display:flex; align-items:flex-end; gap:3px; }
+  .chart-bar { flex:1; border-radius:2px 2px 0 0; min-height:4px; transition:height .5s ease; position:relative; cursor:pointer; }
+  .chart-bar:hover::after { content:attr(data-tip); position:absolute; bottom:100%; left:50%; transform:translateX(-50%); background:var(--surface2); border:1px solid var(--border); padding:4px 8px; border-radius:4px; font-size:10px; white-space:nowrap; pointer-events:none; margin-bottom:4px; z-index:10; }
+
+  .history-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .history-table th { padding:10px 16px; text-align:left; font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--text3); border-bottom:1px solid var(--border); font-weight:400; }
+  .history-table td { padding:11px 16px; border-bottom:1px solid rgba(30,42,53,.5); color:var(--text2); }
+  .history-table tr:last-child td { border-bottom:none; }
+  .history-table tr:hover td { background:rgba(255,255,255,.02); color:var(--text); }
+  .profit-cell { color:var(--accent2) !important; font-weight:700; }
+
+  footer { border-top:1px solid var(--border); padding-top:20px; display:flex; align-items:center; justify-content:space-between; font-size:10px; color:var(--text3); letter-spacing:1px; margin-top:20px; }
+
+  .offline-banner { background:rgba(255,59,92,.08); border:1px solid rgba(255,59,92,.2); border-radius:8px; padding:12px 16px; font-size:12px; color:var(--red); margin-bottom:16px; display:none; align-items:center; gap:8px; }
+  .offline-banner.show { display:flex; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="header-left">
+      <h1>ETH <span>GRID</span></h1>
+      <div class="subtitle">Bithumb · Auto Trading Dashboard</div>
+    </div>
+    <div class="header-right">
+      <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+      <div class="last-update" id="lastUpdate">마지막 업데이트: --</div>
+    </div>
+  </header>
+
+  <div class="offline-banner" id="offlineBanner">⚠ API 연결 실패 — 서버 상태를 확인해</div>
+
+  <div class="price-hero">
+    <div>
+      <div class="price-label">KRW-ETH · BITHUMB</div>
+      <div class="price-value"><span class="currency">₩</span><span id="currentPrice">---</span></div>
+      <div class="price-sub" id="priceSub">로딩 중...</div>
+    </div>
+    <div class="range-indicator">
+      <div class="range-labels">
+        <span id="lowerLabel">하단 --</span>
+        <span id="upperLabel">상단 --</span>
+      </div>
+      <div class="range-bar">
+        <div class="range-bar-fill" id="rangeFill" style="width:0%"></div>
+        <div class="range-cursor" id="rangeCursor" style="left:0%"></div>
+      </div>
+      <div class="position-pct" id="positionPct">--%</div>
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <div class="card-label">누적 수익</div>
+      <div class="card-value green" id="totalProfit">---</div>
+      <div class="card-sub" id="roiPct">수익률 --%</div>
+      <div class="card-line" style="background:linear-gradient(90deg,var(--accent2),transparent)"></div>
+    </div>
+    <div class="card">
+      <div class="card-label">체결 횟수</div>
+      <div class="card-value accent" id="sellCount">---</div>
+      <div class="card-sub" id="gridMode">모드 로딩 중</div>
+      <div class="card-line" style="background:linear-gradient(90deg,var(--accent),transparent)"></div>
+    </div>
+    <div class="card">
+      <div class="card-label">격자 현황</div>
+      <div class="card-value" id="gridStatus">--/--</div>
+      <div class="card-sub" id="gridDetail">매수 -- / 매도 --</div>
+      <div class="card-line" style="background:linear-gradient(90deg,var(--warn),transparent)"></div>
+    </div>
+    <div class="card">
+      <div class="card-label">운용 기간</div>
+      <div class="card-value" id="duration">--</div>
+      <div class="card-sub" id="startedAt">시작일 --</div>
+      <div class="card-line" style="background:linear-gradient(90deg,#a855f7,transparent)"></div>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">격자 맵</div>
+        <div class="panel-badge badge-active" id="modeBadge">ACTIVE</div>
+      </div>
+      <div class="grid-viz">
+        <div class="grid-rows" id="gridRows">
+          <div style="text-align:center;color:var(--text3);font-size:12px;padding:20px">로딩 중...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">스캐너</div>
+        <div class="panel-badge badge-info" id="scanTs">--</div>
+      </div>
+      <div class="scanner-panel">
+        <div class="score-display">
+          <div class="score-num" id="scoreNum">--</div>
+          <div class="score-label">MARKET SCORE</div>
+          <div class="verdict-text verdict-yellow" id="verdictText">로딩 중</div>
+        </div>
+        <div class="indicator-rows">
+          <div class="indicator-row">
+            <div class="ind-name">F&G</div>
+            <div class="ind-bar-wrap"><div class="ind-bar" id="fngBar" style="width:0%"></div></div>
+            <div class="ind-val" id="fngVal">--</div>
+          </div>
+          <div class="indicator-row">
+            <div class="ind-name">RSI</div>
+            <div class="ind-bar-wrap"><div class="ind-bar" id="rsiBar" style="width:0%"></div></div>
+            <div class="ind-val" id="rsiVal">--</div>
+          </div>
+          <div class="indicator-row">
+            <div class="ind-name">BB폭</div>
+            <div class="ind-bar-wrap"><div class="ind-bar" id="bbBar" style="width:0%"></div></div>
+            <div class="ind-val" id="bbVal">--%</div>
+          </div>
+          <div class="indicator-row">
+            <div class="ind-name">추세</div>
+            <div class="ind-bar-wrap"><div class="ind-bar" id="trendBar" style="width:50%"></div></div>
+            <div class="ind-val" id="trendVal">--</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-panel">
+    <div class="chart-title">스캔 점수 히스토리 (최근 48회)</div>
+    <div class="mini-chart" id="scoreChart">
+      <div style="color:var(--text3);font-size:11px;align-self:center">로딩 중...</div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:20px">
+    <div class="panel-header">
+      <div class="panel-title">매도 대기 격자</div>
+      <div class="panel-badge badge-info" id="tradeCount">0건</div>
+    </div>
+    <table class="history-table">
+      <thead>
+        <tr>
+          <th>#</th><th>매수가</th><th>매도 예약가</th><th>수량</th><th>예상 순수익</th><th>예상 수익률</th>
+        </tr>
+      </thead>
+      <tbody id="tradeBody">
+        <tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px;font-size:12px">로딩 중...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>
+    <span>ETH GRID DASHBOARD · BITHUMB SPOT</span>
+    <span id="footerTime">--:--:--</span>
+  </footer>
+
+</div>
+<script>
+// ══════════════════════════════════
+// 설정 — 여기만 수정하면 됨
+// ══════════════════════════════════
+const API_URL   = 'https://kgu3405.tplinkdns.com/api/grid/status'
+const API_TOKEN = 'kgu4624$^@$'   // telegram_bot.py의 API_TOKEN과 동일하게
+const INVEST_PER_GRID = 10_000
+const REFRESH_MS = 60_000
+
+// ══════════════════════════════════
+// 유틸
+// ══════════════════════════════════
+const fmt  = n => Math.round(n).toLocaleString('ko-KR')
+const setEl = (id, v) => { const e = document.getElementById(id); if(e) e.textContent = v }
+
+async function fetchData() {
+  const res = await fetch(`${API_URL}?token=${API_TOKEN}`)
+  if (!res.ok) throw new Error(res.status)
+  return res.json()
+}
+
+// ══════════════════════════════════
+// 그리드 상태
+// ══════════════════════════════════
+function renderGrid(state) {
+  const grids   = state.grids || []
+  const stats   = state.stats || {}
+  const lower   = state.lower || 0
+  const upper   = state.upper || 0
+  const count   = state.count || 20
+  const mode    = state.mode  || 'ACTIVE'
+  const total   = count * INVEST_PER_GRID
+
+  // 현재가 — 스캔 로그에서 보완 (grid_state엔 없음)
+  const curEl = document.getElementById('currentPrice')
+  // 현재가는 scan에서 채워짐
+
+  // 범위 바
+  const lastScanPrice = window._lastScanPrice || 0
+  if (upper > lower && lastScanPrice) {
+    const pct = Math.min(100, Math.max(0, (lastScanPrice - lower) / (upper - lower) * 100))
+    document.getElementById('rangeFill').style.width = pct + '%'
+    document.getElementById('rangeCursor').style.left = pct + '%'
+    setEl('positionPct', pct.toFixed(1) + '%')
+    setEl('lowerLabel', '₩' + fmt(lower))
+    setEl('upperLabel', '₩' + fmt(upper))
+    setEl('priceSub', `범위 내 ${pct.toFixed(1)}% 위치`)
+  }
+
+  // 스탯
+  const roi = total > 0 ? (stats.total_profit / total * 100) : 0
+  setEl('totalProfit', '₩' + fmt(stats.total_profit || 0))
+  setEl('roiPct', '수익률 ' + roi.toFixed(2) + '%')
+  setEl('sellCount', (stats.sell_count || 0) + '회')
+
+  const openG  = grids.filter(g => g.status === 'open')
+  const buyG   = openG.filter(g => g.side === 'buy')
+  const sellG  = openG.filter(g => g.side === 'sell')
+  setEl('gridStatus', openG.length + ' / ' + count)
+  setEl('gridDetail', `매수 ${buyG.length} / 매도 ${sellG.length}`)
+
+  // 모드
+  const badge = document.getElementById('modeBadge')
+  if (mode === 'SELL_ONLY') {
+    badge.textContent = '⏸ SELL ONLY'
+    badge.className = 'panel-badge badge-paused'
+    setEl('gridMode', '⏸ 매도대기 (하단이탈)')
+  } else {
+    badge.textContent = '● ACTIVE'
+    badge.className = 'panel-badge badge-active'
+    setEl('gridMode', '🟢 정상 운용 중')
+  }
+
+  // 운용 기간
+  if (state.started_at) {
+    const start = new Date(state.started_at.replace(' ', 'T'))
+    const diff  = Date.now() - start.getTime()
+    const days  = Math.floor(diff / 86400000)
+    const hours = Math.floor((diff % 86400000) / 3600000)
+    setEl('duration', days > 0 ? `${days}일 ${hours}시간` : `${hours}시간`)
+    setEl('startedAt', state.started_at.slice(0, 10) + ' 시작')
+  }
+
+  // 격자 맵
+  renderGridMap(grids, lastScanPrice, lower, upper, state.gap || 0)
+
+  // 매도 대기 테이블
+  renderSellTable(sellG)
+}
+
+function renderGridMap(grids, cur, lower, upper, gap) {
+  const container = document.getElementById('gridRows')
+  const open = grids.filter(g => g.status === 'open').sort((a,b) => b.price - a.price)
+  if (!open.length) {
+    container.innerHTML = '<div style="text-align:center;color:var(--text3);padding:20px;font-size:12px">격자 없음</div>'
+    return
+  }
+  const range = upper - lower || 1
+  let curInserted = false
+  const rows = []
+  for (const g of open) {
+    if (!curInserted && g.price < cur) {
+      rows.push({ type:'cur' })
+      curInserted = true
+    }
+    rows.push({ type:'grid', g, pct: (g.price - lower) / range * 100 })
+  }
+  if (!curInserted) rows.push({ type:'cur' })
+
+  container.innerHTML = rows.slice(0, 24).map(r => {
+    if (r.type === 'cur') return `
+      <div class="current-price-line">
+        <div class="cur-line"></div>
+        <div class="cur-tag">▶ ${fmt(cur)} 현재가</div>
+        <div class="cur-line"></div>
+      </div>`
+    const isSell = r.g.side === 'sell'
+    return `<div class="grid-row">
+      <div class="grid-price">${fmt(r.g.price)}</div>
+      <div class="grid-bar-wrap">
+        <div class="grid-bar ${isSell?'sell':'buy'}" style="width:${Math.min(100,Math.max(10,r.pct))}%"></div>
+      </div>
+      <div class="grid-status ${isSell?'status-sell':'status-buy'}">${isSell?'SELL':'BUY'}</div>
+    </div>`
+  }).join('')
+}
+
+function renderSellTable(sellGrids) {
+  setEl('tradeCount', sellGrids.length + '건')
+  const tbody = document.getElementById('tradeBody')
+  if (!sellGrids.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px;font-size:12px">매도 대기 격자 없음</td></tr>'
+    return
+  }
+  const sorted = [...sellGrids].sort((a,b) => b.price - a.price)
+  tbody.innerHTML = sorted.map((g, i) => {
+    const bp  = g.buy_price || 0
+    const sp  = g.price || 0
+    const qty = g.qty || 0
+    const net = qty * (sp - bp) - qty * sp * 0.0008
+    const roi = bp > 0 ? ((sp - bp) / bp * 100) : 0
+    return `<tr>
+      <td style="color:var(--text3)">${i+1}</td>
+      <td style="color:var(--text)">₩${fmt(bp)}</td>
+      <td style="color:var(--accent)">₩${fmt(sp)}</td>
+      <td style="color:var(--text2)">${qty.toFixed(6)}</td>
+      <td class="profit-cell">+₩${Math.round(net).toLocaleString()}</td>
+      <td style="color:var(--accent2)">+${roi.toFixed(2)}%</td>
+    </tr>`
+  }).join('')
+}
+
+// ══════════════════════════════════
+// 스캔 로그
+// ══════════════════════════════════
+function renderScan(logs) {
+  if (!logs.length) return
+  const last = logs[logs.length - 1]
+
+  // 현재가 (스캔 로그의 마지막 가격)
+  if (last.price) {
+    window._lastScanPrice = last.price
+    setEl('currentPrice', fmt(last.price))
+  }
+
+  // 타임스탬프
+  setEl('scanTs', (last.ts || '').slice(11, 16))
+
+  // 스코어
+  const score = last.score || 0
+  setEl('scoreNum', (score >= 0 ? '+' : '') + score)
+
+  // 판정
+  const verdictEl = document.getElementById('verdictText')
+  const v = last.verdict || ''
+  verdictEl.textContent = v.replace(/[🟢🟡🟠🔴]/g, '').trim()
+  verdictEl.className = 'verdict-text ' +
+    (v.includes('🟢') ? 'verdict-green' :
+     v.includes('🟡') ? 'verdict-yellow' :
+     v.includes('🟠') ? 'verdict-orange' : 'verdict-red')
+
+  // 지표
+  const fng = last.fng || 0
+  document.getElementById('fngBar').style.cssText =
+    `width:${fng}%;background:${fng<=25?'var(--red)':fng<=45?'var(--warn)':fng<=60?'var(--text2)':'var(--accent2)'}`
+  setEl('fngVal', fng)
+
+  const rsi = last.rsi || 0
+  document.getElementById('rsiBar').style.cssText =
+    `width:${rsi}%;background:${rsi<=30?'var(--accent2)':rsi>=70?'var(--red)':'var(--accent)'}`
+  setEl('rsiVal', rsi)
+
+  const bb = last.bb_bw || 0
+  document.getElementById('bbBar').style.cssText =
+    `width:${Math.min(100, bb*5)}%;background:var(--accent2)`
+  setEl('bbVal', bb + '%')
+
+  const trend = last.trend || ''
+  document.getElementById('trendBar').style.cssText =
+    `width:${trend.includes('상승')?'80':trend.includes('하락')?'20':'50'}%;` +
+    `background:${trend.includes('상승')?'var(--accent2)':trend.includes('하락')?'var(--red)':'var(--warn)'}`
+  setEl('trendVal', trend.includes('상승') ? '↑ 상승' : trend.includes('하락') ? '↓ 하락' : '→ 횡보')
+
+  // 차트
+  const chart = document.getElementById('scoreChart')
+  const recent = logs.slice(-48)
+  const maxAbs = Math.max(...recent.map(l => Math.abs(l.score || 0)), 1)
+  chart.innerHTML = recent.map(l => {
+    const s   = l.score || 0
+    const pct = Math.abs(s) / maxAbs * 100
+    const col = s >= 3 ? 'var(--accent2)' : s >= 1 ? '#7ecfff' : s >= -1 ? 'var(--warn)' : 'var(--red)'
+    const ts  = (l.ts || '').slice(11, 16)
+    const vv  = (l.verdict || '').replace(/[🟢🟡🟠🔴]/g, '').trim()
+    return `<div class="chart-bar" style="height:${Math.max(pct,5)}%;background:${col};opacity:.75"
+              data-tip="${ts} · ${s >= 0 ? '+' : ''}${s} · ${vv}"></div>`
+  }).join('')
+}
+
+// ══════════════════════════════════
+// 메인 루프
+// ══════════════════════════════════
+async function loadAll() {
+  try {
+    const data = await fetchData()
+    document.getElementById('offlineBanner').classList.remove('show')
+
+    if (data.scan?.length)  renderScan(data.scan)
+    if (data.grid)          renderGrid(data.grid)
+
+    setEl('lastUpdate', '마지막 업데이트: ' + new Date().toLocaleTimeString('ko-KR'))
+  } catch(e) {
+    console.error(e)
+    document.getElementById('offlineBanner').classList.add('show')
+  }
+}
+
+setInterval(loadAll, REFRESH_MS)
+setInterval(() => setEl('footerTime', new Date().toLocaleTimeString('ko-KR', {hour12:false})), 1000)
+loadAll()
+</script>
+</body>
+</html>
